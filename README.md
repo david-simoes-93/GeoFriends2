@@ -1,5 +1,5 @@
 # GeoFriends2
-An OpenAI Gym environment with complex puzzle maps, highly adequate for reinforcement learning approaches.
+An OpenAI Gym environment with complex puzzle maps, highly adequate for reinforcement learning approaches, based on [Geometry Friends](http://gaips.inesc-id.pt/geometryfriends/).
 
 To ready the environment, we recommend using VirtualEnv. You will need the [PyGame](https://www.pygame.org/news) and [Gym](https://github.com/openai/gym) environments.
 

@@ -267,7 +267,6 @@ class GymEnvGF(gym.Env):
 
         self.obstacles_circle += self.obstacles
         if self.rectangle:
-            print("rectangle active")
             self.obstacles_circle += [Obstacle(self.rectangle_pos[0], self.rectangle_pos[1], self.rect_w / 2, self.rect_h / 2)]
         self.obstacles_rectangle += self.obstacles
 

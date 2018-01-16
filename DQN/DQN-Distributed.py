@@ -25,7 +25,7 @@ action_size_circle = 4
 model_path = './model_dist'
 use_lstm = False
 use_conv_layers = False
-display = False
+display = True
 
 parser = argparse.ArgumentParser()
 parser.register("type", "bool", lambda v: v.lower() == "true")

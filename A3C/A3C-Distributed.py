@@ -49,7 +49,7 @@ parser.add_argument(
     "--learning",
     type=int,
     default=2,
-    help="0 no one learning; 1 square learning; 2 circle learning; 3 square and circle learning"
+    help="0 no one learning; 1 circle learning; 2 square learning; 3 square and circle learning"
 )
 
 FLAGS, unparsed = parser.parse_known_args()

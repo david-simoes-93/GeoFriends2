@@ -360,6 +360,7 @@ class WorkerGF2:
                     prev_clock = new_clock
 
                 if terminal:
+                    print("terminal",episode_step_count)
                     break
 
             # print("0ver ",episode_count)

@@ -51,7 +51,7 @@ class WorkerGeoFriends:
 
         self.trainer = False
         self.htg = True
-        self.trainer_episodes_limit = 15000  # trainer slowly turns off after some games
+        self.trainer_episodes_limit = 8000  # trainer slowly turns off after some games
 
     def train(self, rollout, sess, gamma, bootstrap_value, ac_network):
         # prev_screen, action, reward, next_screen, terminal, value
@@ -178,7 +178,7 @@ class WorkerGeoFriends:
 
             batch_size = 25
             for episode_step_count in range(max_episode_length):
-                if self.display:
+                if self.display and self.is_chief:
                     self.env.render()
 
                 # Watch environment
@@ -190,11 +190,11 @@ class WorkerGeoFriends:
                     # score = (100 / max_episode_length) * max(0, 1 - episode_count/self.trainer_steps)
 
                     # SIMPLE/SMALL
-                    # score = min(100 / max_episode_length, gamma ** (max_episode_length - episode_step_count) * 100)
+                    score = min(100 / max_episode_length, gamma ** (max_episode_length - episode_step_count) * 100)
                     # when 830 steps missing, it will use simple method, otherwise the discounted reward (assuming gamma = .99)
 
                     # SIMPLE
-                    score = (100 / max_episode_length)
+                    #score = (100 / max_episode_length)
 
                     if self.rectangle_learning:
                         reward_rectangle += previous_htg_rect[actions[0]] * score

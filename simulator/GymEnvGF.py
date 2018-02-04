@@ -193,6 +193,12 @@ class GymEnvGF(gym.Env):
         self.mixed_maps.append(Map([],
                                    [random.randint(100, 600), 700], [random.randint(280, 600), 700],
                                    [[random.randint(700, 1150), random.randint(300, 700)]]))
+        # mixed map with towers
+        self.mixed_maps.append(Map([Obstacle(400, 570, 40, 190), Obstacle(800, 570, 40, 190)],
+                                   [random.randint(100, 200), 700], [random.randint(200, 300), 700],
+                                    [[random.randint(500, 700), random.randint(350, 700)],
+                                     [400, random.randint(150, 300)], [800, random.randint(150, 300)]]))
+        #
 
     def _render(self, mode='human', close=False):
         if close:

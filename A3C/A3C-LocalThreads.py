@@ -20,7 +20,7 @@ max_episode_length = 4000
 gamma = .99  # discount rate for advantage estimation and reward discounting
 state_size_square = 9
 state_size_circle = 11
-learning_rate = 1e-6
+learning_rate = 1e-5
 action_size_square = 4
 action_size_circle = 4
 
@@ -28,21 +28,21 @@ load_model = False
 model_path = './model'
 use_lstm = False
 use_conv_layers = False
-display = True
+display = False
 
 parser = argparse.ArgumentParser()
 parser.register("type", "bool", lambda v: v.lower() == "true")
 parser.add_argument(
     "--num_slaves",
     type=int,
-    default=1,
+    default=3,
     help="Set number of available CPU threads"
 )
 parser.add_argument(
     "--learning",
     type=int,
-    default=4,
-    help="0 no one learning; 1 square learning; 2 circle learning; 3 square and circle learning"
+    default=2,
+    help="0 no one learning; 1/5 circle learning; 2/4 square learning; 3 square and circle learning"
 )
 FLAGS, unparsed = parser.parse_known_args()
 

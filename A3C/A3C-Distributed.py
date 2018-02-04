@@ -107,7 +107,7 @@ with tf.device(tf.train.replica_device_setter(worker_device="/job:a3c/task:%d" %
                              rectangle_learning=square_learning, circle_learning=circle_learning)
 
 print("Starting session", server.target, FLAGS.task_index)
-hooks = [tf.train.StopAtStepHook(last_step=100000)]
+hooks = [tf.train.StopAtStepHook(last_step=5000)]
 with tf.train.MonitoredTrainingSession(master=server.target, is_chief=(FLAGS.task_index == 0),
                                        config=tf.ConfigProto(),
                                        save_summaries_steps=100,

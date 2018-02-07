@@ -41,6 +41,9 @@ class Map(object):
 class GymEnvGF(gym.Env):
     def __init__(self, rectangle=True, circle=False):
         # super?
+        self.frameskip = 5
+        self.air_movement = False
+        self.square_interrupt_growth = False
 
         # Global info
         self.rewards = []
@@ -62,7 +65,7 @@ class GymEnvGF(gym.Env):
         # Rectangle info
         self.rectangle = rectangle
         self.rectangle_pos = None
-        self.growing = False  # upwards
+        self.growing_side = False  # upwards
         self.rect_min, self.rect_max = 40, 200
         self.rect_w, self.rect_h = self.rect_max, self.rect_min
         self.rectangle_ground = None
@@ -176,6 +179,12 @@ class GymEnvGF(gym.Env):
         self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
                                        [], [200, 450],
                                        [[random.randint(100, 600), random.randint(600, 750)]]))
+        # Rectangle map - two platforms
+        self.rectangle_maps.append(Map([Obstacle(200, 500, 160, 20), Obstacle(840, 500, 400, 20),
+                                        Obstacle(440, 260, 400, 20), Obstacle(1080, 260, 160, 20)],
+                                       [], [200, 150],
+                                       [[1000, 600], [200, 600], [1000, 380], [200, 380], [1000, 100], [200, 100]]))
+
         # Simple map, agents on left, reward on right
         self.rectangle_maps.append(Map([],
                                        [], [random.randint(700, 1000), 700],
@@ -221,14 +230,6 @@ class GymEnvGF(gym.Env):
         for obs in self.obstacles:
             pygame.draw.rect(self.screen, (0, 0, 0),
                              [obs.left_x, obs.top_y, obs.right_x - obs.left_x, obs.bot_y - obs.top_y])
-        """if self.circle:
-            for obs in self.obstacles_circle:
-                pygame.draw.rect(self.screen, (0, 0, 0),
-                                 [obs.left_x, obs.top_y, obs.right_x - obs.left_x, obs.bot_y - obs.top_y])
-        if self.rectangle:
-            for obs in self.obstacles_rectangle:
-                pygame.draw.rect(self.screen, (0, 0, 0),
-                                 [obs.left_x, obs.top_y, obs.right_x - obs.left_x, obs.bot_y - obs.top_y])"""
 
         # Draw circle
         if self.circle:
@@ -258,7 +259,7 @@ class GymEnvGF(gym.Env):
         self.circle_vel = [0, 0]
         self.circle_spin = 0
         self.rect_w, self.rect_h = self.rect_max, self.rect_min
-        self.growing = True  # growing sideways
+        self.growing_side = True  # growing sideways
 
         if self.rectangle and not self.circle:
             self.map = random.choice(self.rectangle_maps)
@@ -284,7 +285,17 @@ class GymEnvGF(gym.Env):
         return self.get_rect_state(), self.get_circ_state()
 
     def _step(self, action):
-        action_rectangle, action_circle = action[0], action[1]
+        state, reward, terminal, extra_info = self._step_single_action(action[0], action[1])
+        repeat_action_rect = action[0] if action[0]!=2 else 3
+        repeat_action_circ = action[0] if action[0] != 2 else 3;
+        for i in range(1, self.frameskip):
+            state, reward_new, terminal_new, extra_info = self._step_single_action(
+                repeat_action_rect, repeat_action_circ)
+            reward += reward_new
+            terminal |= terminal_new
+        return state, reward, terminal, extra_info
+
+    def _step_single_action(self, action_rectangle, action_circle):
         reward = 0
 
         if self.circle:
@@ -300,10 +311,12 @@ class GymEnvGF(gym.Env):
             elif action_circle == 3:  # NOTHING
                 pass
 
-            # keep velocity from being affected while on_air
-            # if self.circle_on_ground:
-            #    self.circle_vel[0] = self.circle_spin
-            self.circle_vel[0] = self.circle_spin
+            # move on air
+            if self.air_movement:
+                self.circle_vel[0] = self.circle_spin
+            # or keep velocity from being affected while on_air
+            elif self.circle_on_ground:
+                self.circle_vel[0] = self.circle_spin
 
             # gravity
             self.circle_vel[1] += 3
@@ -345,24 +358,33 @@ class GymEnvGF(gym.Env):
                 i += 1
 
         if self.rectangle:
+            can_grow_side = self.rect_w - 200 / self.fps < self.rect_max
+            can_grow_up = self.rect_w - 200 / self.fps > self.rect_min
+
             # Rectangle movement
             if action_rectangle == 0:  # LEFT
                 self.rectangle_pos[0] -= 500 / self.fps
             elif action_rectangle == 1:  # RIGHT
                 self.rectangle_pos[0] += 500 / self.fps
             elif action_rectangle == 2:  # RESIZE
-                self.growing = not self.growing
+                if self.square_interrupt_growth:
+                    self.growing_side = not self.growing_side
+                else:
+                    if not can_grow_up:
+                        self.growing_side = True
+                    elif not can_grow_side:
+                        self.growing_side = False
             elif action_rectangle == 3:  # NOTHING
                 pass
 
             self.rectangle_pos[1] += 300 / self.fps
 
-            if not self.growing and self.rect_w - 200 / self.fps > self.rect_min:
+            if not self.growing_side and can_grow_up:
                 # if can grow upwards
                 self.rectangle_pos[1] -= 100 / self.fps
                 self.rect_w = self.rect_w - 200 / self.fps
                 self.rect_h = self.rect_h + 200 / self.fps
-            elif self.growing and self.rect_w - 200 / self.fps < self.rect_max:
+            elif self.growing_side and can_grow_side:
                 # if can grow sideways
                 self.rectangle_pos[1] += 100 / self.fps
                 self.rect_w = self.rect_w + 200 / self.fps
@@ -430,7 +452,7 @@ class GymEnvGF(gym.Env):
     def get_rect_state(self):
         if not self.rectangle:
             return np.zeros(10)
-        state = [self.rectangle_pos[0], self.rectangle_pos[1], int(self.growing), self.rect_w]
+        state = [self.rectangle_pos[0], self.rectangle_pos[1], int(self.growing_side), self.rect_w]
         for [x, y] in self.rewards:
             state += [x, y]
         while len(state) < 10:

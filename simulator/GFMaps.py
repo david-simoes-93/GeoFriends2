@@ -35,7 +35,7 @@ class Map(object):
 
 def circle_maps(env):
     env.circle_maps = []
-    """""
+
     # High platform on left
     env.circle_maps.append(Map([Obstacle(480, 328, 480, 16)],
                                [136, 264], [],
@@ -67,7 +67,7 @@ def circle_maps(env):
                                [1150, 264], [],
                                [[1150, 100], [180, 272]]))
     env.circle_maps[-1].is_terminal = lambda rectangle_pos, circle_pos, rewards: circle_pos[1] > 700
-    """
+
     # two narrow obstacles, circle on left
     env.circle_maps.append(Map([Obstacle(400, 620, 40, 140), Obstacle(800, 620, 40, 140)],
                                [200, 700], [],

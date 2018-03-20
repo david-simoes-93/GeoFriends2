@@ -2,48 +2,26 @@
 
 import gym
 from gym.spaces import *
+from pygame.locals import *
 import numpy as np
-import random
 import sys
 import pygame
+from simulator.GFMaps import *
 
-
-class Obstacle(object):
-    def __init__(self, center_x, center_y, half_width, half_height):
-        self.update_obs(center_x, center_y, half_width, half_height)
-
-    def __str__(self):
-        return "*(" + str(self.left_x) + "," + str(self.top_y) + "):(" + \
-               str(self.right_x) + "," + str(self.bot_y) + ")*"
-
-    def update_obs(self, center_x, center_y, half_width, half_height):
-        self.top_y = center_y - half_height
-        self.bot_y = center_y + half_height
-        self.left_x = center_x - half_width
-        self.right_x = center_x + half_width
-
-        self.center_x = center_x
-        self.center_y = center_y
-        self.half_width = half_width
-        self.half_height = half_height
-
-
-class Map(object):
-    def __init__(self, obstacles, circle, rectangle, rewards):
-        self.obstacles = obstacles
-        self.circle_pos = circle
-        self.rectangle_pos = rectangle
-        self.rewards = rewards
-
-    def is_terminal(self, rectangle_pos, circle_pos):
-        return False
 
 class GymEnvGF(gym.Env):
-    def __init__(self, rectangle=True, circle=False):
+    # rectangle = whether to enable rectangle agent
+    # circle = whether to enable circle agent
+    # frameskip = amount of actions to repeat per step
+    # air_movement = whether to allow agents to move while on air
+    # square_interrupt_growth = whether to allow rectangle to invert its growth sequence
+    def __init__(self, rectangle=True, circle=False, frameskip=1, air_movement=False, square_interrupt_growth=True,
+                 screen_res=[640, 400]):
         # super?
-        self.frameskip = 5
-        self.air_movement = False
-        self.square_interrupt_growth = False
+        self.frameskip = frameskip
+        self.air_movement = air_movement
+        self.square_interrupt_growth = square_interrupt_growth
+        self.screen_res = screen_res
 
         # Global info
         self.rewards = []
@@ -51,7 +29,6 @@ class GymEnvGF(gym.Env):
         self.obstacles_circle = []
         self.obstacles_rectangle = []
         self.terminal = False
-        self.fps = 100
 
         # Circle info
         self.circle = circle
@@ -88,126 +65,13 @@ class GymEnvGF(gym.Env):
                                                                   np.array([1280, 800, 1, self.rect_max,
                                                                             1280, 800, 1280, 800, 1280, 800]))))
         # A tuple corresponding to the min and max possible rewards
-        self.reward_range = [0, 100]
+        self.reward_range = [0, 1]
 
         # Maps
         self.circle_maps = []
         self.rectangle_maps = []
         self.mixed_maps = []
-        self.fill_maps()
-
-    def fill_maps(self):
-        # Circle map - high platform on left
-        self.circle_maps.append(Map([Obstacle(480, 328, 480, 16)],
-                                    [136, 264], [],
-                                    [[136, 100], [1100, 272]]))
-        self.circle_maps[-1].is_terminal = lambda rectangle_pos, circle_pos: circle_pos[1] > 700
-        # Circle map - two big corners
-        self.circle_maps.append(Map([Obstacle(136, 552, 96, 224), Obstacle(1072, 672, 168, 88)],
-                                    [random.randint(80, 180), 264], [],
-                                    [[random.randint(300, 550), 700], [random.randint(650, 850), 700],
-                                     [random.randint(930, 1230), 400]]))
-        # Circle map - wall in middle
-        self.circle_maps.append(Map([Obstacle(640, 660, 200, 100)],
-                                    [150, 700], [],
-                                    [[random.randint(100, 300), random.randint(500, 700)],
-                                     [random.randint(440, 840), random.randint(300, 500)],
-                                     [random.randint(980, 1180), random.randint(500, 700)]]))
-        # Circle map - two big corners
-        self.circle_maps.append(Map([Obstacle(1144, 552, 96, 224), Obstacle(208, 672, 168, 88)],
-                                    [random.randint(1000, 1200), 264], [],
-                                    [[random.randint(750, 950), random.randint(500, 700)],
-                                     [random.randint(400, 650), random.randint(500, 700)],
-                                     [random.randint(50, 350), random.randint(300, 500)]]))
-        # Circle map - high platform on right
-        self.circle_maps.append(Map([Obstacle(800, 328, 480, 16)],
-                                    [1150, 264], [],
-                                    [[1150, 100], [180, 272]]))
-        self.circle_maps[-1].is_terminal = lambda rectangle_pos, circle_pos: circle_pos[1] > 700
-        #
-        self.circle_maps.append(Map([Obstacle(400, 620, 40, 140), Obstacle(800, 620, 40, 140)],
-                                    [200, 700], [],
-                                    [[random.randint(500, 700), random.randint(350, 700)] if random.random() > 0.5 else
-                                     [random.randint(900, 1100), random.randint(350, 700)],
-                                     [400, random.randint(150, 400)], [800, random.randint(150, 400)]]))
-        #
-        self.circle_maps.append(Map([Obstacle(400, 620, 40, 140), Obstacle(800, 620, 40, 140)],
-                                    [600, 700], [],
-                                    [[random.randint(100, 300), random.randint(350, 700)] if random.random() > 0.5 else
-                                     [random.randint(900, 1100), random.randint(350, 700)],
-                                     [400, random.randint(150, 400)], [800, random.randint(150, 400)]]))
-        #
-        self.circle_maps.append(Map([Obstacle(400, 620, 40, 140), Obstacle(800, 620, 40, 140)],
-                                    [1080, 700], [],
-                                    [[random.randint(500, 700), random.randint(350, 700)] if random.random() > 0.5 else
-                                     [random.randint(100, 300), random.randint(350, 700)],
-                                     [400, random.randint(150, 400)], [800, random.randint(150, 400)]]))
-        # Simple map, agents on left, reward on right
-        self.circle_maps.append(Map([],
-                                    [random.randint(700, 1150), 700], [],
-                                    [[random.randint(100, 600), random.randint(400, 700)]]))
-        # Simple map, agents on right, reward on left
-        self.circle_maps.append(Map([],
-                                    [random.randint(100, 600), 700], [],
-                                    [[random.randint(700, 1150), random.randint(400, 700)]]))
-
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [200, 450],
-                                       [[random.randint(100, 600), random.randint(300, 450)],
-                                        [random.randint(700, 1100), random.randint(600, 750)]]))
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [200, 450],
-                                       [[random.randint(100, 600), random.randint(300, 450)],
-                                        [random.randint(700, 1100), random.randint(300, 450)]]))
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [1080, 450],
-                                       [[random.randint(700, 1100), random.randint(300, 450)],
-                                        [random.randint(100, 600), random.randint(600, 750)]]))
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [1080, 450],
-                                       [[random.randint(700, 1100), random.randint(300, 450)],
-                                        [random.randint(100, 600), random.randint(300, 450)]]))
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [1080, 450],
-                                       [[random.randint(700, 1100), random.randint(600, 750)]]))
-        # Rectangle map - high platform on left
-        self.rectangle_maps.append(Map([Obstacle(320, 500, 280, 20), Obstacle(960, 500, 280, 20)],
-                                       [], [200, 450],
-                                       [[random.randint(100, 600), random.randint(600, 750)]]))
-        # Rectangle map - two platforms
-        self.rectangle_maps.append(Map([Obstacle(200, 500, 160, 20), Obstacle(840, 500, 400, 20),
-                                        Obstacle(440, 260, 400, 20), Obstacle(1080, 260, 160, 20)],
-                                       [], [200, 150],
-                                       [[1000, 600], [200, 600], [1000, 380], [200, 380], [1000, 100], [200, 100]]))
-
-        # Simple map, agents on left, reward on right
-        self.rectangle_maps.append(Map([],
-                                       [], [random.randint(700, 1000), 700],
-                                       [[random.randint(100, 600), random.randint(550, 700)]]))
-        # Simple map, agents on right, reward on left
-        self.rectangle_maps.append(Map([],
-                                       [], [random.randint(280, 600), 700],
-                                       [[random.randint(700, 1150), random.randint(550, 700)]]))
-
-        # Simple map, agents on left, reward on right
-        self.mixed_maps.append(Map([],
-                                   [random.randint(700, 1150), 700], [random.randint(700, 1000), 700],
-                                   [[random.randint(100, 600), random.randint(300, 700)]]))
-        # Simple map, agents on right, reward on left
-        self.mixed_maps.append(Map([],
-                                   [random.randint(100, 600), 700], [random.randint(280, 600), 700],
-                                   [[random.randint(700, 1150), random.randint(300, 700)]]))
-        # mixed map with towers
-        self.mixed_maps.append(Map([Obstacle(400, 570, 40, 190), Obstacle(800, 570, 40, 190)],
-                                   [random.randint(100, 200), 700], [random.randint(200, 300), 700],
-                                    [[random.randint(500, 700), random.randint(350, 700)],
-                                     [400, random.randint(150, 300)], [800, random.randint(150, 300)]]))
-        #
+        fill_maps(self)
 
     def _render(self, mode='human', close=False):
         if close:
@@ -221,7 +85,8 @@ class GymEnvGF(gym.Env):
 
         if self.screen is None:
             pygame.init()
-            self.screen = pygame.display.set_mode([1280, 800])
+            self.screen = pygame.surface.Surface((1280, 800))  # original GF size
+            self.gui_window = pygame.display.set_mode(self.screen_res, HWSURFACE | DOUBLEBUF | RESIZABLE)
             pygame.display.set_caption("GymGF2")
 
         self.screen.fill((0, 0, 255))
@@ -248,6 +113,7 @@ class GymEnvGF(gym.Env):
         for reward in self.rewards:
             pygame.draw.circle(self.screen, (255, 0, 255), [int(reward[0]), int(reward[1])], 25)
 
+        self.gui_window.blit(pygame.transform.scale(self.screen, self.screen_res), (0, 0))
         pygame.display.flip()
 
     def _reset(self):
@@ -262,10 +128,13 @@ class GymEnvGF(gym.Env):
         self.growing_side = True  # growing sideways
 
         if self.rectangle and not self.circle:
+            rect_maps(self)
             self.map = random.choice(self.rectangle_maps)
         elif not self.rectangle and self.circle:
+            circle_maps(self)
             self.map = random.choice(self.circle_maps)
         else:
+            both_maps(self)
             self.map = random.choice(self.mixed_maps)
         self.obstacles += self.map.obstacles
         self.circle_pos = list(self.map.circle_pos)
@@ -273,21 +142,23 @@ class GymEnvGF(gym.Env):
         self.rewards = list(self.map.rewards)
 
         self.obstacles_circle += self.obstacles
-        if self.rectangle:
-            self.obstacles_circle += [Obstacle(self.rectangle_pos[0], self.rectangle_pos[1], self.rect_w / 2, self.rect_h / 2)]
         self.obstacles_rectangle += self.obstacles
+        """if self.rectangle and self.circle:
+            self.obstacles_circle += [Obstacle(self.rectangle_pos[0], self.rectangle_pos[1],
+                                               self.rect_w / 2, self.rect_h / 2)]
+            self.obstacles_rectangle += [Obstacle(self.circle_pos[0], self.circle_pos[1], 40, 40)]"""
 
         if self.circle:
             self.set_on_ground_circle()
         if self.rectangle:
             self.set_on_ground_rectangle()
 
-        return self.get_rect_state(), self.get_circ_state()
+        return (self.get_rect_state(), self.get_circ_state())
 
     def _step(self, action):
         state, reward, terminal, extra_info = self._step_single_action(action[0], action[1])
-        repeat_action_rect = action[0] if action[0]!=2 else 3
-        repeat_action_circ = action[0] if action[0] != 2 else 3;
+        repeat_action_rect = action[0] if action[0] != 2 else 3
+        repeat_action_circ = action[1] if action[1] != 2 else 3
         for i in range(1, self.frameskip):
             state, reward_new, terminal_new, extra_info = self._step_single_action(
                 repeat_action_rect, repeat_action_circ)
@@ -303,48 +174,84 @@ class GymEnvGF(gym.Env):
 
             # Circle movement
             if action_circle == 0:  # LEFT
-                self.circle_spin = self.circle_spin - 2
+                self.circle_spin = self.circle_spin - 0.02
             elif action_circle == 1:  # RIGHT
-                self.circle_spin = self.circle_spin + 2
+                self.circle_spin = self.circle_spin + 0.02
             elif action_circle == 2 and self.circle_on_ground:  # JUMP
-                self.circle_vel[1] = -440
+                self.circle_vel[1] = -4.40
             elif action_circle == 3:  # NOTHING
                 pass
 
-            # move on air
-            if self.air_movement:
+            # move on air if allowed, or only move while on ground
+            if self.air_movement or self.circle_on_ground:
                 self.circle_vel[0] = self.circle_spin
-            # or keep velocity from being affected while on_air
-            elif self.circle_on_ground:
-                self.circle_vel[0] = self.circle_spin
-
             # gravity
-            self.circle_vel[1] += 3
+            self.circle_vel[1] += 0.03
 
-            self.circle_pos[0] += self.circle_vel[0] / self.fps
-            self.circle_pos[1] += self.circle_vel[1] / self.fps
+            self.circle_pos[0] += self.circle_vel[0]
+            self.circle_pos[1] += self.circle_vel[1]
 
             # move circle out of obstacles
+            circle_wall = None
+            current_moved_x, current_moved_y = 0, 0
             for obs in self.obstacles_circle:
-                if obs.left_x < self.circle_pos[0] < obs.right_x:
-                    if obs.top_y < self.circle_pos[1] + self.circle_radius < obs.bot_y:  # ground
-                        self.circle_pos[1] = obs.top_y - self.circle_radius
-                        self.circle_vel[1] = bounce_speed(self.circle_vel[1])
-                    elif obs.top_y < self.circle_pos[1] - self.circle_radius < obs.bot_y:  # ceiling
-                        self.circle_pos[1] = obs.bot_y + self.circle_radius
-                        self.circle_vel[1] = bounce_speed(self.circle_vel[1])
+                if intersects([obs.center_x, obs.center_y], [obs.half_width * 2, obs.half_height * 2],
+                              self.circle_pos, self.circle_radius - 0.01):
+                    # circle crossed horizontal lines of obstacle
+                    if obs.left_x < self.circle_pos[0] < obs.right_x:
+                        # fell inside obstacle below
+                        if obs.top_y < self.circle_pos[1] + self.circle_radius < obs.bot_y:
+                            current_moved_y += (obs.top_y - self.circle_radius) - self.circle_pos[1]
+                            self.circle_pos[1] = obs.top_y - self.circle_radius
+                            self.circle_vel[1] = bounce_speed(self.circle_vel[1])
+                        # jumped into obstacle above
+                        else:
+                            current_moved_y += (obs.bot_y + self.circle_radius) - self.circle_pos[1]
+                            self.circle_pos[1] = obs.bot_y + self.circle_radius
+                            self.circle_vel[1] = bounce_speed(self.circle_vel[1])
+                    # circle crossed vertical lines of obstacle
+                    elif obs.top_y < self.circle_pos[1] < obs.bot_y:
+                        circle_wall = obs
+                        # inside a wall on circle's left
+                        if obs.left_x < self.circle_pos[0] - self.circle_radius < obs.right_x:
+                            current_moved_x += (obs.right_x + self.circle_radius) - self.circle_pos[0]
+                            self.circle_pos[0] = obs.right_x + self.circle_radius
+                            self.circle_vel[0] = bounce_speed(self.circle_vel[0])
+                            self.circle_spin = bounce_speed(self.circle_spin)
+                        # inside a wall on circle's right
+                        else:
+                            current_moved_x += (obs.left_x - self.circle_radius) - self.circle_pos[0]
+                            self.circle_pos[0] = obs.left_x - self.circle_radius
+                            self.circle_vel[0] = bounce_speed(self.circle_vel[0])
+                            self.circle_spin = bounce_speed(self.circle_spin)
+                    # some corner interception
+                    else:
+                        circle_wall = obs
+                        # the mod_x and mod_y allow us to treat all 4 corners in the same way and then just invert x or y as necessary
+                        mod_x = 1 if obs.center_x - self.circle_pos[0] > 0 else -1
+                        mod_y = 1 if obs.center_y - self.circle_pos[1] > 0 else -1
+                        dist_x = np.abs(obs.center_x - self.circle_pos[0]) - obs.half_width
+                        dist_y = np.abs(obs.center_y - self.circle_pos[1]) - obs.half_height
 
-                if obs.top_y < self.circle_pos[1] < obs.bot_y:
-                    if obs.left_x < self.circle_pos[0] - self.circle_radius < obs.right_x:  # left wall
-                        self.circle_pos[0] = obs.right_x + self.circle_radius
-                        self.circle_vel[0] = bounce_speed(self.circle_vel[0])
-                        self.circle_spin = bounce_speed(self.circle_spin)
-                    elif obs.left_x < self.circle_pos[0] + self.circle_radius < obs.right_x:  # right wall
-                        self.circle_pos[0] = obs.left_x - self.circle_radius
-                        self.circle_vel[0] = bounce_speed(self.circle_vel[0])
-                        self.circle_spin = bounce_speed(self.circle_spin)
+                        # if distance in Y is larger (so circle is more up or down), we change Y (we affect height)
+                        if dist_x < dist_y:
+                            new_dist_x = 0
+                            new_dist_y = np.sqrt(self.circle_radius ** 2 - dist_x ** 2) - dist_y
+                        # else if distance in X is larger (so circle is more to the side), we change X (we affect width)
+                        else:
+                            new_dist_x = np.sqrt(self.circle_radius ** 2 - dist_y ** 2) - dist_x
+                            new_dist_y = 0
 
-                        # TODO corner cases
+                        # if movement to dodge corner contradicts movement to avoid another obstacle, we change x and y
+                        if new_dist_x*current_moved_x < 0:
+                            new_dist_y = new_dist_x
+                        if new_dist_y*current_moved_y < 0:
+                            new_dist_x = new_dist_y
+
+                        current_moved_x += (new_dist_x * -mod_x)
+                        self.circle_pos[0] += new_dist_x * -mod_x
+                        current_moved_y += (new_dist_y * -mod_y)
+                        self.circle_pos[1] += new_dist_y * -mod_y
 
             self.set_on_ground_circle()
 
@@ -358,14 +265,14 @@ class GymEnvGF(gym.Env):
                 i += 1
 
         if self.rectangle:
-            can_grow_side = self.rect_w - 200 / self.fps < self.rect_max
-            can_grow_up = self.rect_w - 200 / self.fps > self.rect_min
+            can_grow_side = self.rect_w - 2 < self.rect_max
+            can_grow_up = self.rect_w - 2 > self.rect_min
 
             # Rectangle movement
             if action_rectangle == 0:  # LEFT
-                self.rectangle_pos[0] -= 500 / self.fps
+                self.rectangle_pos[0] -= 5
             elif action_rectangle == 1:  # RIGHT
-                self.rectangle_pos[0] += 500 / self.fps
+                self.rectangle_pos[0] += 5
             elif action_rectangle == 2:  # RESIZE
                 if self.square_interrupt_growth:
                     self.growing_side = not self.growing_side
@@ -377,27 +284,27 @@ class GymEnvGF(gym.Env):
             elif action_rectangle == 3:  # NOTHING
                 pass
 
-            self.rectangle_pos[1] += 300 / self.fps
+            self.rectangle_pos[1] += 3
 
             if not self.growing_side and can_grow_up:
                 # if can grow upwards
-                self.rectangle_pos[1] -= 100 / self.fps
-                self.rect_w = self.rect_w - 200 / self.fps
-                self.rect_h = self.rect_h + 200 / self.fps
+                self.rectangle_pos[1] -= 1
+                self.rect_w = self.rect_w - 2
+                self.rect_h = self.rect_h + 2
             elif self.growing_side and can_grow_side:
                 # if can grow sideways
-                self.rectangle_pos[1] += 100 / self.fps
-                self.rect_w = self.rect_w + 200 / self.fps
-                self.rect_h = self.rect_h - 200 / self.fps
+                self.rectangle_pos[1] += 1
+                self.rect_w = self.rect_w + 2
+                self.rect_h = self.rect_h - 2
 
             # move rectangle out of obstacles
             for obs in self.obstacles_rectangle:
                 if obs.left_x < self.rectangle_pos[0] - self.rect_w / 2 < obs.right_x:
-                    if obs.top_y < self.rectangle_pos[1] + self.rect_h / 2 < obs.top_y + 301 / self.fps:  # ground
+                    if obs.top_y < self.rectangle_pos[1] + self.rect_h / 2 < obs.top_y + 3.01:  # ground
                         self.rectangle_pos[1] = obs.top_y - self.rect_h / 2
 
                 if obs.left_x < self.rectangle_pos[0] + self.rect_w / 2 < obs.right_x:
-                    if obs.top_y < self.rectangle_pos[1] + self.rect_h / 2 < obs.top_y + 301 / self.fps:  # ground
+                    if obs.top_y < self.rectangle_pos[1] + self.rect_h / 2 < obs.top_y + 3.01:  # ground
                         self.rectangle_pos[1] = obs.top_y - self.rect_h / 2
 
                 if self.rectangle_pos[1] - self.rect_h / 2 < obs.center_y < self.rectangle_pos[1] + self.rect_h / 2:
@@ -418,10 +325,6 @@ class GymEnvGF(gym.Env):
                     elif obs.left_x < self.rectangle_pos[0] + self.rect_w / 2 < obs.right_x:  # right wall
                         self.rectangle_pos[0] = obs.left_x - self.rect_w / 2
 
-            if self.circle:
-                self.obstacles_circle[-1].update_obs(self.rectangle_pos[0], self.rectangle_pos[1],
-                                                     self.rect_w / 2, self.rect_h / 2)
-
             self.set_on_ground_rectangle()
 
             # rewards
@@ -433,11 +336,98 @@ class GymEnvGF(gym.Env):
                     reward += 1
                 i += 1
 
-        self.terminal = len(self.rewards) == 0 or self.map.is_terminal(self.rectangle_pos,self.circle_pos)
+        # keep circle from hitting rectangle
+        if self.circle and self.rectangle:
+            if intersects(self.rectangle_pos, [self.rect_w, self.rect_h], self.circle_pos, self.circle_radius):
+                # TODO when we move rectangle out of circle, we should ensure its not going inside other obstacles
+                rect_as_an_obstacle = Obstacle(self.rectangle_pos[0], self.rectangle_pos[1],
+                                               self.rect_w / 2, self.rect_h / 2)
+                # circle crossed horizontal lines of rectangle
+                if rect_as_an_obstacle.left_x <= self.circle_pos[0] <= rect_as_an_obstacle.right_x:
+                    # fell inside rectangle below, move circle up
+                    if rect_as_an_obstacle.top_y <= self.circle_pos[1] + self.circle_radius <= rect_as_an_obstacle.bot_y:
+                        self.circle_pos[1] = rect_as_an_obstacle.top_y - self.circle_radius
+                        self.circle_vel[1] = bounce_speed(self.circle_vel[1])
+                    # jumped into rectangle above or rectangle fell on circle
+                    elif rect_as_an_obstacle.top_y <= self.circle_pos[1] - self.circle_radius <= rect_as_an_obstacle.bot_y:
+                        if self.circle_on_ground:  # circle on ground, rectangle moves up
+                            self.rectangle_pos[1] = self.circle_pos[1] - self.circle_radius - self.rect_h / 2
+                        else:  # circle not on ground, circle moves down
+                            self.circle_pos[1] = rect_as_an_obstacle.bot_y + self.circle_radius
+                            self.circle_vel[1] = bounce_speed(self.circle_vel[1])
+                # circle crossed vertical lines of rectangle
+                elif rect_as_an_obstacle.top_y <= self.circle_pos[1] <= rect_as_an_obstacle.bot_y:
+                    # rectangle on circle's left
+                    if rect_as_an_obstacle.left_x <= self.circle_pos[0] - self.circle_radius <= rect_as_an_obstacle.right_x:
+                        # if circle next to wall, move rectangle
+                        if circle_wall is not None:
+                            self.rectangle_pos[0] = self.circle_pos[0] - self.circle_radius - self.rect_w / 2
+                        # else, move circle
+                        else:
+                            self.circle_pos[0] = rect_as_an_obstacle.right_x + self.circle_radius
+                            self.circle_vel[0] = bounce_speed(self.circle_vel[0])
+                            self.circle_spin = bounce_speed(self.circle_spin)
+                    # rectangle on circle's right
+                    else:
+                        # if circle next to wall, move rectangle
+                        if circle_wall is not None:
+                            self.rectangle_pos[0] = self.circle_pos[0] + self.circle_radius + self.rect_w / 2
+                        # else, move circle
+                        else:
+                            self.circle_pos[0] = rect_as_an_obstacle.left_x - self.circle_radius
+                            self.circle_vel[0] = bounce_speed(self.circle_vel[0])
+                            self.circle_spin = bounce_speed(self.circle_spin)
+                            # self.circle_pos[1] -= 5
+                            # pass
+                else:
+                    # the mod_x and mod_y allow us to treat all 4 corners in the same way and then just invert x or y as necessary
+                    mod_x = 1 if self.rectangle_pos[0] - self.circle_pos[0] > 0 else -1
+                    mod_y = 1 if self.rectangle_pos[1] - self.circle_pos[1] > 0 else -1
+                    dist_x = np.abs(self.rectangle_pos[0] - self.circle_pos[0]) - self.rect_w / 2
+                    dist_y = np.abs(self.rectangle_pos[1] - self.circle_pos[1]) - self.rect_h / 2
 
-        return (self.get_rect_state(), self.get_circ_state()), reward * 100, self.terminal, {}
+                    # if distance in Y is larger (so circle is more up or down), we change Y (we affect height)
+                    if dist_x < dist_y:
+                        new_dist_x = 0
+                        new_dist_y = np.sqrt(self.circle_radius ** 2 - dist_x ** 2) - dist_y
+                    # else if distance in X is larger (so circle is more to the side), we change X (we affect width)
+                    else:
+                        new_dist_x = np.sqrt(self.circle_radius**2 - dist_y**2) - dist_x
+                        new_dist_y = 0
+
+                    # if circle next to wall or on ground, move rectangle
+                    if circle_wall is not None:
+                        self.rectangle_pos[0] += new_dist_x * mod_x
+                    # else, move circle
+                    else:
+                        # if movement to dodge corner contradicts movement to avoid another obstacle, we change x and y
+                        if new_dist_x * current_moved_x < 0:
+                            new_dist_y = new_dist_x
+                        if new_dist_y * current_moved_y < 0:
+                            new_dist_x = new_dist_y
+
+                        self.circle_pos[0] += new_dist_x * -mod_x
+
+                    # if circle's lower part is below rectangle's lower part, move rectangle
+                    if self.circle_pos[1]+self.circle_radius > self.rectangle_pos[1]+self.rect_h/2:
+                        self.rectangle_pos[1] += new_dist_y * mod_y
+                    # else, move circle
+                    else:
+                        # if movement to dodge corner contradicts movement to avoid another obstacle, we change x and y
+                        if new_dist_x * current_moved_x < 0:
+                            new_dist_y = new_dist_x
+                        if new_dist_y * current_moved_y < 0:
+                            new_dist_x = new_dist_y
+
+                        self.circle_pos[1] += new_dist_y * -mod_y
+
+        self.terminal = len(self.rewards) == 0 or self.map.is_terminal(self.rectangle_pos, self.circle_pos,
+                                                                       self.rewards)
+
+        return (self.get_rect_state(), self.get_circ_state()), reward, self.terminal, {}
 
     # computes the circle's observations
+    # [ POS X, POS Y, SPEED X, SPEED Y, REWARD_1 X, REWARD_1 Y, REWARD_2 X, REWARD_2 Y, REWARD_3 X, REWARD_3 Y]
     def get_circ_state(self):
         if not self.circle:
             return np.zeros(10)
@@ -449,6 +439,7 @@ class GymEnvGF(gym.Env):
         return state
 
     # computes the rectangle's observations
+    # [ POS X, POS Y, GROWING_SIDEWAYS, WIDTH, REWARD_1 X, REWARD_1 Y, REWARD_2 X, REWARD_2 Y, REWARD_3 X, REWARD_3 Y]
     def get_rect_state(self):
         if not self.rectangle:
             return np.zeros(10)
@@ -468,6 +459,14 @@ class GymEnvGF(gym.Env):
                                     pos[1] < obs.top_y < self.obstacles_circle[index].top_y:
                 index = i
 
+        # check if rectangle is ground
+        if self.rectangle:
+            rect_as_an_obstacle = Obstacle(self.rectangle_pos[0], self.rectangle_pos[1], self.rect_w / 2,
+                                           self.rect_h / 2)
+            if rect_as_an_obstacle.left_x - self.circle_radius < pos[
+                0] < rect_as_an_obstacle.right_x + self.circle_radius and \
+                                    pos[1] < rect_as_an_obstacle.top_y < self.obstacles_circle[index].top_y:
+                return rect_as_an_obstacle
         return self.obstacles_circle[index]
 
     # checks and sets if circle is touching the ground
@@ -476,15 +475,15 @@ class GymEnvGF(gym.Env):
 
         # if completely on top and y=40, on ground
         if self.circle_ground.left_x < self.circle_pos[0] < self.circle_ground.right_x:
-            self.circle_on_ground = self.circle_ground.top_y - self.circle_pos[1] < self.circle_radius + 1
+            self.circle_on_ground = self.circle_ground.top_y - self.circle_pos[1] < self.circle_radius + 0.01
         # if to the side and d=40, on ground
         elif self.circle_pos[0] < self.circle_ground.left_x:
             self.circle_on_ground = distance([self.circle_ground.left_x, self.circle_ground.top_y],
-                                             self.circle_pos) < self.circle_radius + 1
+                                             self.circle_pos) < self.circle_radius + 0.01
         # if to the side and d=40, on ground
         elif self.circle_ground.right_x < self.circle_pos[0]:
             self.circle_on_ground = distance([self.circle_ground.right_x, self.circle_ground.top_y],
-                                             self.circle_pos) < self.circle_radius + 1
+                                             self.circle_pos) < self.circle_radius + 0.01
 
     # checks and sets if rectangle is touching the ground
     def set_on_ground_rectangle(self):
@@ -526,9 +525,12 @@ def distance(a, b):
 
 # calculate new speed value when ball hits something
 def bounce_speed(speed):
+    speed *= 100
     bounce_spd = 0.0001 * speed ** 2 - 0.3785 * speed - 0.5477
     if abs(bounce_spd) < 1.3:
         bounce_spd = 0
+    else:
+        bounce_spd /= 100
     return bounce_spd
 
 

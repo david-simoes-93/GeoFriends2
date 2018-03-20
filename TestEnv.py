@@ -1,19 +1,17 @@
 from simulator.GymEnvGF import GymEnvGF
 
-env = GymEnvGF(rectangle=True, circle=False)
+environment = GymEnvGF(rectangle=False, circle=True, frameskip=10, air_movement=False, square_interrupt_growth=False)
 
 for trial_number in range(3):
-    obs, info = env.reset()
-    print(info)
-    print(env.action_space.spaces)
+    observation = environment.reset()
+    environment.render()
 
     while True:
-        #print(obs[1])
+        action = environment.action_space.sample()                                          # take a random action
+        observation, reward, terminal, additional_information = environment.step(action)    # step
+        environment.render()
 
-        env.render()
-        obs, reward, term, info = env.step(env.action_space.sample())     # take a random action
-
-        if term:
+        if terminal:
             break
 
-env.close()
+environment.close()

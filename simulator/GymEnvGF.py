@@ -401,8 +401,6 @@ class GymEnvGF(gym.Env):
                     # else, move circle
                     else:
                         # if movement to dodge corner contradicts movement to avoid another obstacle, we change x and y
-                        if new_dist_x * current_moved_x < 0:
-                            new_dist_y = new_dist_x
                         if new_dist_y * current_moved_y < 0:
                             new_dist_x = new_dist_y
 
@@ -416,9 +414,7 @@ class GymEnvGF(gym.Env):
                         # if movement to dodge corner contradicts movement to avoid another obstacle, we change x and y
                         if new_dist_x * current_moved_x < 0:
                             new_dist_y = new_dist_x
-                        if new_dist_y * current_moved_y < 0:
-                            new_dist_x = new_dist_y
-
+                        
                         self.circle_pos[1] += new_dist_y * -mod_y
 
         self.terminal = len(self.rewards) == 0 or self.map.is_terminal(self.rectangle_pos, self.circle_pos,

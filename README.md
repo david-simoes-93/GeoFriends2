@@ -20,4 +20,6 @@ Or distributed with the scripts (for example, 12 processes):
     ./start-a3c.sh 12
     ./start-dqn.sh 12
 
-We are in the process of publishing a paper with more details and our results. We will post those here in the future.
+We have published a [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8489372) in IJCNN18 with more details and our results, titled "Guided Deep Reinforcement Learning in the GeoFriends2 Environment".
+
+
